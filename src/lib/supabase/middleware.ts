@@ -3,8 +3,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
 import { getSupabaseEnv, hasSupabaseEnv } from "@/lib/supabase/env";
 
+const loginPath = "/login";
+const adminPathPrefix = "/admin";
+
 export async function updateSupabaseSession(request: NextRequest) {
+  const isAdminRoute = request.nextUrl.pathname.startsWith(adminPathPrefix);
+
   if (!hasSupabaseEnv()) {
+    if (isAdminRoute) {
+      return NextResponse.redirect(new URL(loginPath, request.url));
+    }
+
     return NextResponse.next({ request });
   }
 
@@ -30,7 +39,17 @@ export async function updateSupabaseSession(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (isAdminRoute && !user) {
+    return NextResponse.redirect(new URL(loginPath, request.url));
+  }
+
+  if (request.nextUrl.pathname === loginPath && user) {
+    return NextResponse.redirect(new URL(adminPathPrefix, request.url));
+  }
 
   return response;
 }
